@@ -10,22 +10,11 @@ cloudinary.v2.config({
 
 export const config = {
   api: {
-    bodyParser: false, // Next.js precisa que o body parser esteja desativado para uploads de arquivos
+    bodyParser: false,
   },
 };
 
 const MAX_SIZE_MB = 10;
-
-const parseForm = async (req) => {
-  return new Promise((resolve, reject) => {
-    const form = new IncomingForm({ multiples: false, keepExtensions: true });
-
-    form.parse(req, (err, fields, files) => {
-      if (err) reject(err);
-      else resolve(files);
-    });
-  });
-};
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -33,8 +22,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    const files = await parseForm(req);
-    const file = files.file || files["file"] || Object.values(files)[0];
+    const form = new IncomingForm({ multiples: false, keepExtensions: true });
+
+    const [fields, files] = await new Promise((resolve, reject) => {
+      form.parse(req, (err, fields, files) => {
+        if (err) reject(err);
+        else resolve([fields, files]);
+      });
+    });
+
+    const file = files.file || Object.values(files)[0]; // Garante que pegamos o arquivo certo
 
     if (!file || !file.filepath) {
       return res.status(400).json({ error: "Nenhum arquivo enviado." });
@@ -44,7 +41,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: `O arquivo excede o limite de ${MAX_SIZE_MB}MB` });
     }
 
-    const isVideo = file.mimetype ? file.mimetype.startsWith("video/") : false;
+    const isVideo = file.mimetype?.startsWith("video/") || false;
     const fileBuffer = await fs.readFile(file.filepath);
 
     const uploadRes = await new Promise((resolve, reject) => {
