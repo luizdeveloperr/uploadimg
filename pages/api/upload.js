@@ -31,22 +31,25 @@ export default async function handler(req, res) {
       });
     });
 
-    const file = files.file || Object.values(files)[0]; // Garante que pegamos o arquivo certo
+    const file = files.file || Object.values(files)[0];
 
     if (!file || !file.filepath) {
-      return res.status(400).json({ error: "Nenhum arquivo enviado." });
+      return res.status(400).json({ error: "Nenhuma imagem enviada." });
+    }
+
+    if (!file.mimetype.startsWith("image/")) {
+      return res.status(400).json({ error: "Somente imagens são permitidas." });
     }
 
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      return res.status(400).json({ error: `O arquivo excede o limite de ${MAX_SIZE_MB}MB` });
+      return res.status(400).json({ error: `A imagem excede o limite de ${MAX_SIZE_MB}MB` });
     }
 
-    const isVideo = file.mimetype?.startsWith("video/") || false;
     const fileBuffer = await fs.readFile(file.filepath);
 
     const uploadRes = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.v2.uploader.upload_stream(
-        { folder: "uploads", resource_type: isVideo ? "video" : "image" },
+        { folder: "uploads", resource_type: "image" },
         (error, result) => {
           if (error) return reject(error);
           resolve(result);
