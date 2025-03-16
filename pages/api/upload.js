@@ -24,20 +24,20 @@ export default async function handler(req, res) {
   try {
     const form = new IncomingForm({ multiples: false, keepExtensions: true });
 
-    const [fields, files] = await new Promise((resolve, reject) => {
+    const files = await new Promise((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
         if (err) reject(err);
-        else resolve([fields, files]);
+        else resolve(files);
       });
     });
 
-    const file = files.file || Object.values(files)[0];
+    const file = files.file || files["file"] || Object.values(files)[0]; // Garante que pegamos o arquivo certo
 
     if (!file || !file.filepath) {
       return res.status(400).json({ error: "Nenhuma imagem enviada." });
     }
 
-    if (!file.mimetype.startsWith("image/")) {
+    if (!file.mimetype || !file.mimetype.startsWith("image/")) {
       return res.status(400).json({ error: "Somente imagens são permitidas." });
     }
 
