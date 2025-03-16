@@ -36,52 +36,30 @@ export default async function handler(req, res) {
     const files = await parseForm(req);
     const file = files.file || files["file"] || Object.values(files)[0];
 
-    if (!file) {
-      console.error("Nenhum arquivo recebido.");
+    if (!file || !file.filepath) {
       return res.status(400).json({ error: "Nenhum arquivo enviado." });
     }
 
-    const filePath = file.filepath || file.path || (Array.isArray(file) ? file[0].filepath : null);
-
-    if (!filePath) {
-      console.error("Caminho do arquivo indefinido.");
-      return res.status(500).json({ error: "Erro ao obter o caminho do arquivo." });
-    }
-
-    console.log("Arquivo recebido:", file.originalFilename);
-    console.log("Tamanho do arquivo:", file.size / (1024 * 1024), "MB");
-    console.log("Tipo do arquivo:", file.mimetype);
-    console.log("Caminho do arquivo:", filePath);
-
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      console.error(`Arquivo maior que ${MAX_SIZE_MB}MB.`);
       return res.status(400).json({ error: `O arquivo excede o limite de ${MAX_SIZE_MB}MB` });
     }
 
-    const isVideo = file.mimetype.startsWith("video/");
+    const isVideo = file.mimetype ? file.mimetype.startsWith("video/") : false;
+    const fileBuffer = await fs.readFile(file.filepath);
 
-    console.log("Lendo o arquivo...");
-    const fileBuffer = await fs.readFile(filePath);
-
-    console.log("Iniciando upload para o Cloudinary...");
     const uploadRes = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.v2.uploader.upload_stream(
         { folder: "uploads", resource_type: isVideo ? "video" : "image" },
         (error, result) => {
-          if (error) {
-            console.error("Erro no Cloudinary:", error);
-            return reject(error);
-          }
+          if (error) return reject(error);
           resolve(result);
         }
       );
       uploadStream.end(fileBuffer);
     });
 
-    console.log("Upload concluído com sucesso:", uploadRes.secure_url);
     return res.status(200).json({ url: uploadRes.secure_url });
   } catch (error) {
-    console.error("Erro inesperado:", error);
     return res.status(500).json({ error: "Erro inesperado", details: error.message });
   }
 }
